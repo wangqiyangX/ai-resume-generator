@@ -69,25 +69,67 @@ interface StateProps {
 
 interface LocationSelectorProps {
   disabled?: boolean;
+  value?: [string, string | undefined]; // [countryName, stateName]
   onCountryChange?: (country: CountryProps | null) => void;
   onStateChange?: (state: StateProps | null) => void;
 }
 
 const LocationSelector = ({
   disabled,
+  value,
   onCountryChange,
   onStateChange,
 }: LocationSelectorProps) => {
-  const [selectedCountry, setSelectedCountry] = useState<CountryProps | null>(
-    null
-  );
-  const [selectedState, setSelectedState] = useState<StateProps | null>(null);
-  const [openCountryDropdown, setOpenCountryDropdown] = useState(false);
-  const [openStateDropdown, setOpenStateDropdown] = useState(false);
-
   // Cast imported JSON data to their respective types
   const countriesData = countries as CountryProps[];
   const statesData = states as StateProps[];
+
+  // Find initial country and state from value prop
+  const getInitialCountry = (): CountryProps | null => {
+    if (!value || !value[0]) return null;
+    return countriesData.find((c) => c.name === value[0]) || null;
+  };
+
+  const getInitialState = (country: CountryProps | null): StateProps | null => {
+    if (!country || !value || !value[1]) return null;
+    return (
+      statesData.find(
+        (s) => s.country_id === country.id && s.name === value[1]
+      ) || null
+    );
+  };
+
+  const [selectedCountry, setSelectedCountry] = useState<CountryProps | null>(
+    () => getInitialCountry()
+  );
+  const [selectedState, setSelectedState] = useState<StateProps | null>(() =>
+    getInitialState(getInitialCountry())
+  );
+  const [openCountryDropdown, setOpenCountryDropdown] = useState(false);
+  const [openStateDropdown, setOpenStateDropdown] = useState(false);
+
+  // Update selected country and state when value prop changes
+  React.useEffect(() => {
+    if (!value || !value[0]) {
+      setSelectedCountry(null);
+      setSelectedState(null);
+      return;
+    }
+
+    const country = countriesData.find((c) => c.name === value[0]) || null;
+    setSelectedCountry(country);
+
+    if (country && value[1]) {
+      const state =
+        statesData.find(
+          (s) => s.country_id === country.id && s.name === value[1]
+        ) || null;
+      setSelectedState(state);
+    } else {
+      setSelectedState(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   // Filter states for selected country
   const availableStates = statesData.filter(
@@ -107,7 +149,7 @@ const LocationSelector = ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex justify-between gap-4">
       {/* Country Selector */}
       <Popover open={openCountryDropdown} onOpenChange={setOpenCountryDropdown}>
         <PopoverTrigger asChild>
@@ -116,7 +158,7 @@ const LocationSelector = ({
             role="combobox"
             aria-expanded={openCountryDropdown}
             disabled={disabled}
-            className="w-full justify-between"
+            className="flex flex-1 justify-between"
           >
             {selectedCountry ? (
               <div className="flex items-center gap-2">
@@ -169,60 +211,58 @@ const LocationSelector = ({
       </Popover>
 
       {/* State Selector - Only shown if selected country has states */}
-      {availableStates.length > 0 && (
-        <Popover open={openStateDropdown} onOpenChange={setOpenStateDropdown}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={openStateDropdown}
-              disabled={!selectedCountry}
-              className="w-full justify-between"
-            >
-              {selectedState ? (
-                <span>{selectedState.name}</span>
-              ) : (
-                <span>Select State...</span>
-              )}
-              <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0">
-            <Command>
-              <CommandInput placeholder="Search state..." />
-              <CommandList>
-                <CommandEmpty>No state found.</CommandEmpty>
-                <CommandGroup>
-                  <ScrollArea className="h-[300px]">
-                    {availableStates.map((state) => (
-                      <CommandItem
-                        key={state.id}
-                        value={state.name}
-                        onSelect={() => {
-                          handleStateSelect(state);
-                          setOpenStateDropdown(false);
-                        }}
-                        className="flex cursor-pointer items-center justify-between text-sm"
-                      >
-                        <span>{state.name}</span>
-                        <Check
-                          className={cn(
-                            "h-4 w-4",
-                            selectedState?.id === state.id
-                              ? "opacity-100"
-                              : "opacity-0"
-                          )}
-                        />
-                      </CommandItem>
-                    ))}
-                    <ScrollBar orientation="vertical" />
-                  </ScrollArea>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      )}
+      <Popover open={openStateDropdown} onOpenChange={setOpenStateDropdown}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={openStateDropdown}
+            disabled={!selectedCountry}
+            className="flex flex-1 justify-between"
+          >
+            {selectedState ? (
+              <span>{selectedState.name}</span>
+            ) : (
+              <span>Select State...</span>
+            )}
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-0">
+          <Command>
+            <CommandInput placeholder="Search state..." />
+            <CommandList>
+              <CommandEmpty>No state found.</CommandEmpty>
+              <CommandGroup>
+                <ScrollArea className="h-[300px]">
+                  {availableStates.map((state) => (
+                    <CommandItem
+                      key={state.id}
+                      value={state.name}
+                      onSelect={() => {
+                        handleStateSelect(state);
+                        setOpenStateDropdown(false);
+                      }}
+                      className="flex cursor-pointer items-center justify-between text-sm"
+                    >
+                      <span>{state.name}</span>
+                      <Check
+                        className={cn(
+                          "h-4 w-4",
+                          selectedState?.id === state.id
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  ))}
+                  <ScrollBar orientation="vertical" />
+                </ScrollArea>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };
