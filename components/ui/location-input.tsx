@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -84,32 +84,24 @@ const LocationSelector = ({
   const countriesData = countries as CountryProps[];
   const statesData = states as StateProps[];
 
-  // Find initial country and state from value prop
-  const getInitialCountry = (): CountryProps | null => {
-    if (!value || !value[0]) return null;
-    return countriesData.find((c) => c.name === value[0]) || null;
-  };
-
-  const getInitialState = (country: CountryProps | null): StateProps | null => {
-    if (!country || !value || !value[1]) return null;
-    return (
-      statesData.find(
-        (s) => s.country_id === country.id && s.name === value[1]
-      ) || null
-    );
-  };
-
+  // Initialize with null to prevent hydration errors
   const [selectedCountry, setSelectedCountry] = useState<CountryProps | null>(
-    () => getInitialCountry()
+    null
   );
-  const [selectedState, setSelectedState] = useState<StateProps | null>(() =>
-    getInitialState(getInitialCountry())
-  );
+  const [selectedState, setSelectedState] = useState<StateProps | null>(null);
   const [openCountryDropdown, setOpenCountryDropdown] = useState(false);
   const [openStateDropdown, setOpenStateDropdown] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Update selected country and state when value prop changes
-  React.useEffect(() => {
+  // Set mounted flag on client side
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Initialize values after mounting to prevent hydration errors
+  useEffect(() => {
+    if (!mounted) return;
+
     if (!value || !value[0]) {
       setSelectedCountry(null);
       setSelectedState(null);
@@ -129,7 +121,7 @@ const LocationSelector = ({
       setSelectedState(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [mounted, value]);
 
   // Filter states for selected country
   const availableStates = statesData.filter(
@@ -149,7 +141,7 @@ const LocationSelector = ({
   };
 
   return (
-    <div className="flex justify-between gap-4">
+    <div className="flex justify-between gap-2">
       {/* Country Selector */}
       <Popover open={openCountryDropdown} onOpenChange={setOpenCountryDropdown}>
         <PopoverTrigger asChild>
